@@ -5,12 +5,14 @@ public class DealerIdModel {
     private Integer dealerId;
     private String name;
 
+
     public DealerIdModel() {}
 
     public DealerIdModel(Integer dealerId, String name) {
         this.dealerId = dealerId;
         this.name = name;
     }
+
 
     public Integer getDealerId() {
         return dealerId;

@@ -2,55 +2,45 @@ package com.cox.vAuto.services.impl;
 
 import com.cox.vAuto.exception.NotFoundException;
 import com.cox.vAuto.models.*;
+import com.cox.vAuto.repository.face.AnswerRepository;
 import com.cox.vAuto.services.face.AnswerService;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 
 @Service
 public class AnswerServiceImpl implements AnswerService {
 
-    @Override
+    private AnswerRepository answerRepository;
 
-    public String getdatasetId() {
-
-        final String uri = "http://vautointerview.azurewebsites.net/api/datasetId";
-        String datasetID="";
-        RestTemplate restTemplate = new RestTemplate();
-
-        DatasetModel datasetId;
-
-        try {
-            datasetId = restTemplate.getForObject(uri, DatasetModel.class);
-        }catch (HttpClientErrorException | HttpServerErrorException httpClientOrServerExc) {
-            throw new NotFoundException("Cannot Retrieve DatasetId");
-        }
-
-        return datasetId.getDatasetId().toString();
+     @Autowired
+    public AnswerServiceImpl(AnswerRepository answerRepository) {
+        this.answerRepository = answerRepository;
     }
 
+    @Override
+    public String getdatasetId() {
+        return answerRepository.getdatasetId();
+    }
 
 
     @Override
     public VehicleIdModel getvehicleIds(String datasetID) {
 
-        final String uri = "http://vautointerview.azurewebsites.net/api/"+datasetID+"/vehicles";
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        VehicleIdModel vehicleIds;
-        try {
-            vehicleIds   = restTemplate.getForObject(uri,VehicleIdModel.class );
-        }catch (HttpClientErrorException | HttpServerErrorException httpClientOrServerExc) {
-            throw new NotFoundException("Cannot Retrieve VehicleIds");
-        }
-
-        return vehicleIds;
+        return  answerRepository.getvehicleIds(datasetID);
     }
 
 
@@ -58,61 +48,56 @@ public class AnswerServiceImpl implements AnswerService {
 
     public VehicleModel getvehicleInfo(String datasetId, Integer vehicleId) {
 
-        final String uri = "http://vautointerview.azurewebsites.net/api/"+datasetId+"/vehicles/"+vehicleId;
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        VehicleModel vehicleInfo;
-        try {
-            vehicleInfo   = restTemplate.getForObject(uri,VehicleModel.class );
-
-
-        }catch (HttpClientErrorException | HttpServerErrorException httpClientOrServerExc) {
-            throw new NotFoundException("Cannot Retrieve VehicleInfo");
-        }
-
-        return vehicleInfo;
+        return answerRepository.getvehicleInfo(datasetId,vehicleId);
     }
-
 
 
     @Override
-    @Async("asyncExecutor")
+   @Async("asyncExecutor")
     public CompletableFuture<DealerIdModel> getdealerInfo(String datasetId, Integer dealerId) {
-
-
-        final String uri = "http://vautointerview.azurewebsites.net/api/"+datasetId+"/dealers/"+dealerId;
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        DealerIdModel dealerInfo;
-        try {
-            dealerInfo   = restTemplate.getForObject(uri,DealerIdModel.class );
-
-        }catch (HttpClientErrorException | HttpServerErrorException httpClientOrServerExc) {
-            throw new NotFoundException("Cannot Retrieve VehicleInfo");
-        }
-
-        return CompletableFuture.completedFuture(dealerInfo);
+         return answerRepository.getdealerInfo(datasetId,dealerId);
     }
-
 
 
     @Override
     public ResponseModel postAnswer(String dataset, PostAnswerModel postAnswerModel) {
 
-        final String uri = "http://vautointerview.azurewebsites.net/api/"+dataset+"/answer";
+        return answerRepository.postAnswer(dataset,postAnswerModel);
+    }
 
-        RestTemplate restTemplate = new RestTemplate();
+    @Override
+    public  Map<Integer, Dealers> getUniqueDealerListMap (List<CompletableFuture<DealerIdModel>> listOfDealerId, List<VehicleModel> listOfvehicles)throws InterruptedException,ExecutionException
+    {
+        Map<Integer, Dealers> uniqueDealerListMap = new HashMap<>();
+        Multimap<Integer, VehicleInfoModel> listMultimap = ArrayListMultimap.create();
+        for (VehicleModel vehicle : listOfvehicles) {
+            listMultimap.put(vehicle.getDealerId(),
+                    new VehicleInfoModel(vehicle.getVehicleId(),
+                            vehicle.getYear(),
+                            vehicle.getMake(),
+                            vehicle.getModel()));
 
-        ResponseModel response;
-        try {
-            response   = restTemplate.postForObject(uri,postAnswerModel,ResponseModel.class );
-        }catch (HttpClientErrorException | HttpServerErrorException httpClientOrServerExc) {
-            throw new NotFoundException("Cannot verify Answer");
+            if (!uniqueDealerListMap.containsKey(vehicle.getDealerId())) {
+                uniqueDealerListMap.put(vehicle.getDealerId(),
+                        new Dealers(vehicle.getDealerId(),"", new
+                                ArrayList<>()));
+            }
+            Dealers dealers = uniqueDealerListMap.get(vehicle.getDealerId());
+            dealers.getVehicles().add(new VehicleInfoModel(vehicle.getVehicleId(),
+                    vehicle.getYear(),
+                    vehicle.getMake(),
+                    vehicle.getModel()));
         }
 
-        return response;
+        Dealers dealersModel = null;
+        for (CompletableFuture<DealerIdModel> dealerIdModel: listOfDealerId) {
+            DealerIdModel dealersId = dealerIdModel.get();
+            if (uniqueDealerListMap.containsKey(dealersId.getDealerId())) {
+                dealersModel = uniqueDealerListMap.get(dealersId.getDealerId());
+                dealersModel.setName(dealersId.getName());
+            }
+        }
+        return uniqueDealerListMap;
     }
 
 }

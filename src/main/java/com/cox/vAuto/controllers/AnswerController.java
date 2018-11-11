@@ -19,13 +19,12 @@ import java.util.stream.Collectors;
 import java.util.List;
 
 
-@Api(value = "Answer-Controller", description = "One run to return Success")
+@Api(value = "Answer-Controller", description = "One Click run to return Success")
 @RestController
 @RequestMapping("/api")
 public class AnswerController {
 
     private AnswerService answerService;
-
 
     @Autowired
     public AnswerController(AnswerService answerService) {
@@ -55,44 +54,20 @@ public class AnswerController {
             }
 
         }
-        //wait for list to be completed.
+         //wait for list to be completed.
         listOfDealerId.stream().map(CompletableFuture::join).collect(Collectors.toList());
 
         // Build up multiMap
-        Map<Integer, Dealers> uniqueDealerListMap = new HashMap<>();
-        Multimap<Integer, VehicleInfoModel> listMultimap = ArrayListMultimap.create();
-        for (VehicleModel vehicle : listOfvehicles) {
-            listMultimap.put(vehicle.getDealerId(),
-                    new VehicleInfoModel(vehicle.getVehicleId(),
-                            vehicle.getYear(),
-                            vehicle.getMake(),
-                            vehicle.getModel()));
+        Map<Integer, Dealers> DealerListMap = new HashMap<>(answerService.getUniqueDealerListMap(listOfDealerId,listOfvehicles));
 
-            if (!uniqueDealerListMap.containsKey(vehicle.getDealerId())) {
-                uniqueDealerListMap.put(vehicle.getDealerId(),
-                        new Dealers(vehicle.getDealerId(),"", new ArrayList<>()));
-            }
-            Dealers dealers = uniqueDealerListMap.get(vehicle.getDealerId());
-            dealers.getVehicles().add(new VehicleInfoModel(vehicle.getVehicleId(),
-                    vehicle.getYear(),
-                    vehicle.getMake(),
-                    vehicle.getModel()));
-        }
+      //  uniqueDealerListMap=answerService.getUniqueDealerListMap(listOfDealerId,listOfvehicles);
 
-        // List<Dealers> dealersList=new ArrayList<>();
-        Dealers dealersModel = null;
-        for (CompletableFuture<DealerIdModel> dealerIdModel: listOfDealerId) {
-            DealerIdModel dealersId = dealerIdModel.get();
-            if (uniqueDealerListMap.containsKey(dealersId.getDealerId())) {
-                dealersModel = uniqueDealerListMap.get(dealersId.getDealerId());
-                dealersModel.setName(dealersId.getName());
-            }
-        }
 
         //use Dealers list to PostModel
-        PostAnswerModel postModel =new PostAnswerModel(new ArrayList<>(uniqueDealerListMap.values()));
+        PostAnswerModel postModel =new PostAnswerModel(new ArrayList<>(DealerListMap.values()));
 
         return new ResponseEntity<>(answerService.postAnswer(datasetId,postModel), HttpStatus.OK);
     }
+
 
 }
