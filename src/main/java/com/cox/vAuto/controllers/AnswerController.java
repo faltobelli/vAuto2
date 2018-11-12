@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import java.util.List;
 
 
-@Api(value = "Answer-Controller", description = "One Click run to return Success")
+@Api(value = "Answer-Controller", description = "One Click run to return Answer")
 @RestController
 @RequestMapping("/api")
 public class AnswerController {
@@ -60,9 +60,7 @@ public class AnswerController {
         // Build up multiMap
         Map<Integer, Dealers> DealerListMap = new HashMap<>(answerService.getUniqueDealerListMap(listOfDealerId,listOfvehicles));
 
-      //  uniqueDealerListMap=answerService.getUniqueDealerListMap(listOfDealerId,listOfvehicles);
-
-
+    
         //use Dealers list to PostModel
         PostAnswerModel postModel =new PostAnswerModel(new ArrayList<>(DealerListMap.values()));
 
